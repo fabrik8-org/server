@@ -304,8 +304,28 @@ def draw_bounding_boxes_with_plt(npimg, model=model):
     return ax
 
 
+def resize_image(npimg):
+    # Load the image using imread
+    image = cv2.imdecode(npimg, flags=cv2.IMREAD_COLOR)
+
+    # Get the dimensions of the image
+    height, width = image.shape[:2]
+
+    # Determine the scale factor to resize the image
+    max_dimension = 512
+    scale = max_dimension / max(height, width)
+
+    # Resize the image
+    resized_image = cv2.resize(image, None, fx=scale, fy=scale)
+
+    return resized_image
+
+
 def draw_bounding_boxes(npimg, model=model):
     image = cv2.imdecode(npimg, flags=cv2.IMREAD_COLOR)
+    height, width, _ = image.shape
+    if height > 512 or width > 512:
+        image = resize_image(npimg)
     orig_image = image.copy()
 
     image = cv2.cvtColor(orig_image, cv2.COLOR_BGR2RGB).astype(np.float64)
