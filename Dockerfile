@@ -12,7 +12,4 @@ RUN wget https://drive.google.com/file/d/1YzGtJiW-4CSj8O7WAX6T7aNnc7P0wZRN/view?
 
 COPY . .
 
-# Set a non-root user
-USER 10014
-
 CMD [ "python", "./main.py" ]
