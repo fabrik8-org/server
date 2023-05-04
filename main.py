@@ -10,7 +10,6 @@ import base64
 
 import requests
 
-from collect import collect_data
 from model_funcs import draw_bounding_boxes
 
 app = Flask(__name__)
@@ -46,7 +45,6 @@ def predict_defect():
     result = draw_bounding_boxes(npimg=npimg)
     image_base64 = base64.b64encode(result).decode('utf-8')
     prediction = random.choice([True, False])
-    collect_data(image_base64, prediction)
     return jsonify({"prediction": prediction, "image": image_base64}), 200
 
 
