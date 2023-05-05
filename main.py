@@ -7,7 +7,6 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 import random
 import base64
-
 import requests
 
 from model_funcs import draw_bounding_boxes
@@ -15,20 +14,6 @@ from model_funcs import draw_bounding_boxes
 app = Flask(__name__)
 CORS(app)
 app.config['JSON_SORT_KEYS'] = False
-
-
-def verify_image(encoded_image):
-    try:
-        image_bytes = base64.b64decode(encoded_image)
-
-        # Open the image using PIL
-        img = Image.open(BytesIO(image_bytes))
-
-        # Verify the image
-        img.verify()
-        return True
-    except:
-        return False
 
 
 @app.route('/health')
