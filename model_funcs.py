@@ -17,6 +17,7 @@ device = torch.device('cpu')
 model = torchvision.models.detection.fasterrcnn_resnet50_fpn(
     pretrained=False, pretrained_backbone=False)
 
+
 num_classes = 2  #
 
 # get number of input features for the classifier
@@ -322,6 +323,19 @@ def resize_image(npimg):
 
 
 def draw_bounding_boxes(npimg, model=model):
+    """
+    Draws bounding boxes on an image and returns the image with the bounding boxes.
+
+    Parameters:
+        npimg (numpy.ndarray): The image represented as a NumPy array.
+        model (object): The model used for object detection (optional).
+
+    Returns:
+        bytes or None: The image with bounding boxes encoded as bytes in PNG format if bounding boxes are detected,
+                    None if no bounding boxes are detected.
+
+    """
+
     image = cv2.imdecode(npimg, flags=cv2.IMREAD_COLOR)
     height, width, _ = image.shape
     if height > 512 or width > 512:
