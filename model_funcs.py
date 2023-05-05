@@ -322,6 +322,53 @@ def resize_image(npimg):
     return resized_image
 
 
+def make_image_square(image):
+    height, width = image.shape[:2]
+
+    # Check if the image is already square
+    if height == width:
+        return image
+
+    # Calculate the desired size for the square image
+    target_size = max(height, width)
+
+    # Create a new blank square image with the desired size
+    square_image = np.zeros((target_size, target_size, 3), np.uint8)
+    square_image.fill(128)  # Fill the image with gray color
+
+    # Calculate the offset to center the original image in the square image
+    x_offset = (target_size - width) // 2
+    y_offset = (target_size - height) // 2
+
+    # Copy the original image to the center of the square image
+    square_image[y_offset:y_offset+height, x_offset:x_offset+width] = image
+
+    return square_image
+
+
+def calculate_defective_percentage(bounding_boxes, image_shape):
+    """
+    Calculates the total area covered by the defective bounding boxes.
+
+    Parameters:
+        bounding_boxes (list): List of bounding boxes in the format [xmin, ymin, xmax, ymax].
+        image_shape (tuple): Tuple representing the shape of the image (height, width).
+
+    Returns:
+        float: The percentage of the image covered by the bounding boxes.
+    """
+    defective_area = 0
+
+    for box in bounding_boxes:
+        _, _, width, height = get_dimensions(
+            int(box[2]), int(box[3]), int(box[4]), int(box[5]))
+        defective_area += width * height
+
+    total_area = image_shape[0] * image_shape[1]
+    defective_area_percentage = defective_area / total_area * 100
+    return defective_area_percentage
+
+
 def draw_bounding_boxes(npimg, model=model):
     """
     Draws bounding boxes on an image and returns the image with the bounding boxes.
@@ -335,7 +382,8 @@ def draw_bounding_boxes(npimg, model=model):
                     None if no bounding boxes are detected.
 
     """
-
+    defective = False
+    defective_area_percentage = 0
     image = cv2.imdecode(npimg, flags=cv2.IMREAD_COLOR)
     height, width, _ = image.shape
     if height > 512 or width > 512:
@@ -354,12 +402,12 @@ def draw_bounding_boxes(npimg, model=model):
     outputs = [{k: v.to('cpu') for k, v in t.items()} for t in outputs]
 
     if len(outputs[0]['boxes']) != 0:
+        defective = True
         boxes = outputs[0]['boxes'].data.numpy()
         scores = outputs[0]['scores'].data.numpy()
         pred_classes = [i for i in outputs[0]['labels'].numpy()]
 
         non_suppressed_boxes = applyNMS(boxes, scores, pred_classes)
-        print(non_suppressed_boxes)
 
         for j in range(len(non_suppressed_boxes)):
             box = non_suppressed_boxes[j]
@@ -368,8 +416,11 @@ def draw_bounding_boxes(npimg, model=model):
             cv2.rectangle(orig_image, (xmin, ymin),
                           (xmin + width, ymin + height), (0, 0, 255), 2)
 
-        # Return the image with bounding boxes
-        _, output_image = cv2.imencode('.png', orig_image)
-        return output_image.tobytes()
-    else:
-        return None
+        defective_area_percentage = calculate_defective_percentage(
+            non_suppressed_boxes, orig_image.shape)
+
+    # Return the image with bounding boxes
+    square_image = make_image_square(orig_image)
+    _, output_image = cv2.imencode('.png', square_image)
+    result_image = output_image.tobytes()
+    return {'defective': defective, 'image': result_image, 'percentage': defective_area_percentage}
