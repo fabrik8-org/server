@@ -402,12 +402,15 @@ def draw_bounding_boxes(npimg, model=model):
     outputs = [{k: v.to('cpu') for k, v in t.items()} for t in outputs]
 
     if len(outputs[0]['boxes']) != 0:
-        defective = True
+
         boxes = outputs[0]['boxes'].data.numpy()
         scores = outputs[0]['scores'].data.numpy()
         pred_classes = [i for i in outputs[0]['labels'].numpy()]
 
         non_suppressed_boxes = applyNMS(boxes, scores, pred_classes)
+
+        if len(non_suppressed_boxes) != 0:
+            defective = True
 
         for j in range(len(non_suppressed_boxes)):
             box = non_suppressed_boxes[j]
