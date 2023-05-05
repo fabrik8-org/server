@@ -419,7 +419,6 @@ def draw_bounding_boxes(npimg, model=model):
 
         # This get all the bounding boxes
         all_boxes = applyNMS_all(boxes, scores, pred_classes)
-        print(all_boxes)
 
         for j in range(len(non_suppressed_boxes)):
             box = non_suppressed_boxes[j]
@@ -427,22 +426,8 @@ def draw_bounding_boxes(npimg, model=model):
                 int(box[2]), int(box[3]), int(box[4]), int(box[5]))
             cv2.rectangle(orig_image, (xmin, ymin),
                           (xmin + width, ymin + height), (0, 0, 255), 2)
-    #---------------------------------------
-
-        defective_area_percentage = calculate_defective_percentage(
-            non_suppressed_boxes, orig_image.shape)
-
-    # Return the image with bounding boxes
-    square_image = make_image_square(orig_image)
-    _, output_image = cv2.imencode('.png', square_image)
-    result_image = output_image.tobytes()
-    return {'defective': defective, 'image': result_image, 'percentage': defective_area_percentage}
-        # Return the image with bounding boxes
-        _, output_image = cv2.imencode('.png', orig_image)
-    #---------------------------------------
-
+            
         # All bounding boxes
-
         for j in range(len(all_boxes)):
             box = all_boxes[j]
             xmin, ymin, width, height = get_dimensions(
@@ -450,11 +435,18 @@ def draw_bounding_boxes(npimg, model=model):
             cv2.rectangle(orig_image_all, (xmin, ymin),
                           (xmin + width, ymin + height), (0, 0, 255), 2)
 
-        # Return the image with all the bounding boxes
-        _, output_image_all = cv2.imencode('.png', orig_image_all)
+        defective_area_percentage = calculate_defective_percentage(
+            non_suppressed_boxes, orig_image.shape)
 
-    #---------------------------------------
-    
-        return True, output_image.tobytes(), output_image_all.tobytes(), outputs
-    else:
-        return False
+        # Return the image with bounding boxes
+        square_image = make_image_square(orig_image)
+        _, output_image = cv2.imencode('.png', square_image)
+        result_image = output_image.tobytes()
+
+        # Return the image with all the bounding boxes
+        square_image_all= make_image_square(orig_image_all)
+        _, output_image_all = cv2.imencode('.png', square_image_all)
+        result_image_all = output_image_all.tobytes()
+
+        return {'defective': defective, 'image': result_image, 'image_all_boxes':result_image_all, 'percentage': defective_area_percentage, 'output': outputs}
+
