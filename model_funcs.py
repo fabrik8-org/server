@@ -245,6 +245,13 @@ def applyNMS(bboxes, scores, pred_labels, iou_threshold=0.2, threshold=0.7, box_
     formatted_input = [[x[0], x[1], *x[2]] for x in formatted_bboxes]
     return nms(formatted_input, iou_threshold, threshold, box_format)
 
+#this function to get all the bounding boxes
+def applyNMS_all(bboxes, scores, pred_labels, iou_threshold=1.0, threshold=0.0, box_format='corners'):
+    formatted_bboxes = list(zip(pred_labels, scores, bboxes))
+    formatted_input = [[x[0], x[1], *x[2]] for x in formatted_bboxes]
+    return nms(formatted_input, iou_threshold, threshold, box_format)
+
+
 
 def bbLabelFormat(xmin, ymin, rect_width):
     if ymin > 50:
@@ -389,6 +396,7 @@ def draw_bounding_boxes(npimg, model=model):
     if height > 512 or width > 512:
         image = resize_image(npimg)
     orig_image = image.copy()
+    orig_image_all = image.copy()
 
     image = cv2.cvtColor(orig_image, cv2.COLOR_BGR2RGB).astype(np.float64)
     image /= 255.0
@@ -409,12 +417,17 @@ def draw_bounding_boxes(npimg, model=model):
 
         non_suppressed_boxes = applyNMS(boxes, scores, pred_classes)
 
+        # This get all the bounding boxes
+        all_boxes = applyNMS_all(boxes, scores, pred_classes)
+        print(all_boxes)
+
         for j in range(len(non_suppressed_boxes)):
             box = non_suppressed_boxes[j]
             xmin, ymin, width, height = get_dimensions(
                 int(box[2]), int(box[3]), int(box[4]), int(box[5]))
             cv2.rectangle(orig_image, (xmin, ymin),
                           (xmin + width, ymin + height), (0, 0, 255), 2)
+    #---------------------------------------
 
         defective_area_percentage = calculate_defective_percentage(
             non_suppressed_boxes, orig_image.shape)
@@ -424,3 +437,24 @@ def draw_bounding_boxes(npimg, model=model):
     _, output_image = cv2.imencode('.png', square_image)
     result_image = output_image.tobytes()
     return {'defective': defective, 'image': result_image, 'percentage': defective_area_percentage}
+        # Return the image with bounding boxes
+        _, output_image = cv2.imencode('.png', orig_image)
+    #---------------------------------------
+
+        # All bounding boxes
+
+        for j in range(len(all_boxes)):
+            box = all_boxes[j]
+            xmin, ymin, width, height = get_dimensions(
+                int(box[2]), int(box[3]), int(box[4]), int(box[5]))
+            cv2.rectangle(orig_image_all, (xmin, ymin),
+                          (xmin + width, ymin + height), (0, 0, 255), 2)
+
+        # Return the image with all the bounding boxes
+        _, output_image_all = cv2.imencode('.png', orig_image_all)
+
+    #---------------------------------------
+    
+        return True, output_image.tobytes(), output_image_all.tobytes(), outputs
+    else:
+        return False
