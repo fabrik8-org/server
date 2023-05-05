@@ -29,7 +29,6 @@ def predict_defect():
     npimg = np.frombuffer(img, dtype=np.uint8)
     result = draw_bounding_boxes(npimg=npimg)
     output = result['output']
-    print(output)
     #This is the image with only the bounding boxes of the defects
     image_base64 = base64.b64encode(result['image']).decode('utf-8')
     #This is for the image with all the bounding boxes
