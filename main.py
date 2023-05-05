@@ -11,9 +11,39 @@ import requests
 
 from model_funcs import draw_bounding_boxes
 
+#Neptune for monitoring
+import neptune
+from dotenv import load_dotenv
+load_dotenv()
+import os
+import io
+import time
+
 app = Flask(__name__)
 CORS(app)
 app.config['JSON_SORT_KEYS'] = False
+
+
+def verify_image(encoded_image):
+    try:
+        image_bytes = base64.b64decode(encoded_image)
+
+        # Open the image using PIL
+        img = Image.open(BytesIO(image_bytes))
+
+        # Verify the image
+        img.verify()
+        return True
+    except:
+        return False
+
+
+def init_monitoring():
+    return neptune.init_run(
+        capture_stdout=True,
+        capture_stderr=True,
+        capture_hardware_metrics=True,
+    )
 
 
 @app.route('/health')
@@ -23,18 +53,38 @@ def health_check():
 
 @app.route('/predict', methods=['POST'])
 def predict_defect():
+    run = init_monitoring()
     data = request.get_json()
     encoded_image = data.get('image')
     img = base64.b64decode(encoded_image)
+
+    image = Image.open(io.BytesIO(img))
+    run['image_input'].upload(image)
+
     npimg = np.frombuffer(img, dtype=np.uint8)
+    time_start = time.time()
     result = draw_bounding_boxes(npimg=npimg)
+    time_end = time.time()
+    run['inference_time'] = time_end - time_start
     output = result['output']
+    run['boundingBoxes/bounding_boxes'] = str(output[0]['boxes'])
+    run['boundingBoxes/labels'] = str(output[0]['labels'])
+    run['boundingBoxes/scores'] = str(output[0]['scores'])
     #This is the image with only the bounding boxes of the defects
     image_base64 = base64.b64encode(result['image']).decode('utf-8')
+    img_output = base64.b64decode(image_base64)
+    image_output = Image.open(io.BytesIO(img_output))
+    run['image_output'].upload(image_output)
     #This is for the image with all the bounding boxes
     image_base64_all = base64.b64encode(result['image_all_boxes']).decode('utf-8')
+    img_output_all = base64.b64decode(image_base64_all)
+    image_output_all = Image.open(io.BytesIO(img_output_all))
+    run['image_output_all_bounding_boxes'].upload(image_output_all)
     prediction = result['defective']
     defect_percentage = result['percentage']
+    run['prediction'] = prediction
+    run['defect_percentage'] = defect_percentage
+    run.stop()
     return jsonify({"prediction": prediction, "image": image_base64, 'percentage': defect_percentage}), 200
 
 
