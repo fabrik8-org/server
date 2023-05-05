@@ -28,7 +28,11 @@ def predict_defect():
     img = base64.b64decode(encoded_image)
     npimg = np.frombuffer(img, dtype=np.uint8)
     result = draw_bounding_boxes(npimg=npimg)
+    output = result['output']
+    #This is the image with only the bounding boxes of the defects
     image_base64 = base64.b64encode(result['image']).decode('utf-8')
+    #This is for the image with all the bounding boxes
+    image_base64_all = base64.b64encode(result['image_all_boxes']).decode('utf-8')
     prediction = result['defective']
     defect_percentage = result['percentage']
     return jsonify({"prediction": prediction, "image": image_base64, 'percentage': defect_percentage}), 200
