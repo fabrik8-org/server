@@ -18,10 +18,45 @@ from model_funcs import draw_bounding_boxes
 import neptune
 from dotenv import load_dotenv
 load_dotenv()
+import os
+import io
+import time
+import random
+import pandas as pd
+
 
 app = Flask(__name__)
 CORS(app)
 app.config['JSON_SORT_KEYS'] = False
+
+no_of_feedback_requests = 0
+no_of_feedback_replied = 0
+no_of_yes = 0
+no_of_no = 0
+
+def get_feedback_status():
+    global no_of_feedback_requests
+    global no_of_feedback_replied
+    global no_of_yes
+    global no_of_no
+
+    feedback_replied_request_ratio = 1
+    no_yes_ratio = 1
+
+    if no_of_feedback_requests != 0 and no_of_feedback_replied != 0:
+        feedback_replied_request_ratio = no_of_feedback_replied / no_of_feedback_requests
+    
+    if no_of_no != 0 and no_of_yes != 0:
+        no_yes_ratio = no_of_no / no_of_yes
+    
+    threshold = ( random.randint(0,10) * feedback_replied_request_ratio * no_yes_ratio ) / 10
+
+    if threshold >= 0.5:
+        no_of_feedback_requests += 1
+        return True
+    
+    return False
+
 
 
 def verify_image(encoded_image):
@@ -38,24 +73,7 @@ def verify_image(encoded_image):
         return False
 
 
-def init_monitoring():
-    return neptune.init_run(
-        capture_stdout=True,
-        capture_stderr=True,
-        capture_hardware_metrics=True,
-    )
-
-
-@app.route('/health')
-def health_check():
-    return jsonify({"message": "Healthy"}), 200
-
-
-@app.route('/adjust', methods=['POST'])
-def adjust_image():
-    # Get the base64 string from the request
-    data = request.get_json()
-    base64_string = data.get('image')
+def adjust_image(base64_string):
 
     # Decode the base64 string into bytes
     image_bytes = base64.b64decode(base64_string)
@@ -77,11 +95,76 @@ def adjust_image():
         output_buffer.getvalue()).decode('utf-8')
 
     # Return the resized base64 string
-    return jsonify({"image": resized_base64_string}), 200
+    return  resized_base64_string
+
+
+def init_monitoring():
+    return neptune.init_run(
+        capture_stdout=True,
+        capture_stderr=True,
+        capture_hardware_metrics=True,
+    )
+
+
+# @app.route('/datatrain')
+# def create_train_data():
+#     # Initialize the Neptune client
+#     project = neptune.init_project(
+#         mode="read-only",
+#     )
+
+#     # Get all the experiments in the project
+#     experiments = project.fetch_runs_table().to_pandas()
+
+#     print('\n\n\n-----------------------------------------------\n\n\n')
+
+#     print(experiments.__dict__)
+
+
+#     print('\n\n\n-----------------------------------------------\n\n\n')
+
+#     # for experiment in experiments:
+
+#     #     print(experiment['boundingBoxes/scores'])
+#     #     break
+
+#         # print(experiment.get_property('feedback/feedback'))
+#         # print(experiment.get_property('feedback/filename'))
+#         # print(experiment.get_property('feedback/defective'))
+#         # print(experiment.get_property('feedback/x_min'))
+#         # print(experiment.get_property('feedback/y_min'))
+#         # print(experiment.get_property('feedback/x_max'))
+#         # print(experiment.get_property('feedback/y_max'))
+    
+#     csv_doc = 'this variable points to your doc'
+
+#     run = run = neptune.init_run(
+#         project="farzan-frost/fabric8-dataset",
+#         capture_stdout=True,
+#         capture_stderr=True,
+#         capture_hardware_metrics=True,
+#     )
+
+#     run['dataset'].upload(csv_doc)
+
+#     run.stop()
+        
+
+#     project.stop()
+
+#     return 200
+
+
+
+@app.route('/health')
+def health_check():
+    return jsonify({"message": "Healthy"}), 200
 
 
 @app.route('/predict', methods=['POST'])
 def predict_defect():
+    global x
+    x += 1
     run = init_monitoring()
     data = request.get_json()
     encoded_image = data.get('image')
@@ -114,8 +197,53 @@ def predict_defect():
     defect_percentage = result['percentage']
     run['prediction'] = prediction
     run['defect_percentage'] = defect_percentage
+    run_id = run["sys/id"].fetch()
     run.stop()
-    return jsonify({"prediction": prediction, "image": image_base64, 'percentage': defect_percentage}), 200
+    return jsonify(
+        {
+            "prediction": prediction,
+            "image_output": image_base64,
+            "image_input": adjust_image(encoded_image),
+            'percentage': defect_percentage, 
+            'run_id': run_id,
+            'request_feedback': get_feedback_status()
+        }
+    ), 200
+
+
+@app.route('/feedback', methods=['POST'])
+def feedback():
+    global no_of_feedback_replied
+    global no_of_yes
+    global no_of_no
+
+    no_of_feedback_replied += 1
+
+    data = request.get_json()
+    run_id = data.get('run_id')
+    run = neptune.init_run(with_id=str(run_id))
+    feedback = data.get('feedback')
+    run['feedback/feedback'] = feedback
+    if feedback == 'no':
+        no_of_no += 1
+        run['feedback/filename'] = run_id + 'png'
+        run['feedback/defective'] = 1
+        run['feedback/x_min'] = data.get('x_min')
+        run['feedback/y_min'] = data.get('y_min')
+        run['feedback/x_max'] = data.get('x_max')
+        run['feedback/y_max'] = data.get('y_max')
+        encoded_image = data.get('image')
+        img = base64.b64decode(encoded_image)
+        image = Image.open(io.BytesIO(img))
+        run['feedback/image_input'].upload(image)
+        encoded_image_ground_truth = data.get('image_ground_truth')
+        img_ground_truth = base64.b64decode(encoded_image_ground_truth)
+        image_ground_truth = Image.open(io.BytesIO(img_ground_truth))
+        run['feedback/image_input_ground_truth'].upload(image_ground_truth)
+    else:
+        no_of_yes += 1
+    run.stop()
+    
 
 
 if __name__ == '__main__':
