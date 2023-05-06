@@ -1,3 +1,4 @@
+import pandas as pd
 import time
 import io
 import os
@@ -18,11 +19,6 @@ from model_funcs import draw_bounding_boxes
 import neptune
 from dotenv import load_dotenv
 load_dotenv()
-import os
-import io
-import time
-import random
-import pandas as pd
 
 
 app = Flask(__name__)
@@ -33,6 +29,7 @@ no_of_feedback_requests = 0
 no_of_feedback_replied = 0
 no_of_yes = 0
 no_of_no = 0
+
 
 def get_feedback_status():
     global no_of_feedback_requests
@@ -45,18 +42,18 @@ def get_feedback_status():
 
     if no_of_feedback_requests != 0 and no_of_feedback_replied != 0:
         feedback_replied_request_ratio = no_of_feedback_replied / no_of_feedback_requests
-    
+
     if no_of_no != 0 and no_of_yes != 0:
         no_yes_ratio = no_of_no / no_of_yes
-    
-    threshold = ( random.randint(0,10) * feedback_replied_request_ratio * no_yes_ratio ) / 10
+
+    threshold = (random.randint(0, 10) *
+                 feedback_replied_request_ratio * no_yes_ratio) / 10
 
     if threshold >= 0.5:
         no_of_feedback_requests += 1
         return True
-    
-    return False
 
+    return False
 
 
 def verify_image(encoded_image):
@@ -95,7 +92,7 @@ def adjust_image(base64_string):
         output_buffer.getvalue()).decode('utf-8')
 
     # Return the resized base64 string
-    return  resized_base64_string
+    return resized_base64_string
 
 
 def init_monitoring():
@@ -118,12 +115,12 @@ def create_train_data():
 
     if project.exists('feedback/feedback') and project.exists('feedback/defective') and project.exists('feedback/filename') and project.exists('feedback/x_min') and project.exists('feedback/y_min') and project.exists('feedback/x_max') and project.exists('feedback/y_max'):
         experiments = experiments[['feedback/feedback',
-                                'feedback/filename',
-                                'feedback/defective',
-                                'feedback/x_min',
-                                'feedback/y_min',
-                                'feedback/x_max',
-                                'feedback/y_max', ]]
+                                   'feedback/filename',
+                                   'feedback/defective',
+                                   'feedback/x_min',
+                                   'feedback/y_min',
+                                   'feedback/x_max',
+                                   'feedback/y_max', ]]
 
         run = run = neptune.init_run(
             project="farzan-frost/fabric8-dataset-save",
@@ -137,12 +134,10 @@ def create_train_data():
         run['dataset'].upload('file.csv')
 
         run.stop()
-        
 
     project.stop()
 
     return jsonify({"message": "data"}), 200
-
 
 
 @app.route('/health')
@@ -152,8 +147,6 @@ def health_check():
 
 @app.route('/predict', methods=['POST'])
 def predict_defect():
-    global x
-    x += 1
     run = init_monitoring()
     data = request.get_json()
     encoded_image = data.get('image')
@@ -193,7 +186,7 @@ def predict_defect():
             "prediction": prediction,
             "image_output": image_base64,
             "image_input": adjust_image(encoded_image),
-            'percentage': defect_percentage, 
+            'percentage': defect_percentage,
             'run_id': run_id,
             'request_feedback': get_feedback_status()
         }
@@ -225,14 +218,11 @@ def feedback():
         img = base64.b64decode(encoded_image)
         image = Image.open(io.BytesIO(img))
         run['feedback/image_input'].upload(image)
-        encoded_image_ground_truth = data.get('image_ground_truth')
-        img_ground_truth = base64.b64decode(encoded_image_ground_truth)
-        image_ground_truth = Image.open(io.BytesIO(img_ground_truth))
-        run['feedback/image_input_ground_truth'].upload(image_ground_truth)
     else:
         no_of_yes += 1
     run.stop()
-    
+
+    return jsonify({"message": "Feedback received"}), 200
 
 
 if __name__ == '__main__':
