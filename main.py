@@ -106,53 +106,42 @@ def init_monitoring():
     )
 
 
-# @app.route('/datatrain')
-# def create_train_data():
-#     # Initialize the Neptune client
-#     project = neptune.init_project(
-#         mode="read-only",
-#     )
+@app.route('/datatrain')
+def create_train_data():
+    # Initialize the Neptune client
+    project = neptune.init_project(
+        mode="read-only",
+    )
 
-#     # Get all the experiments in the project
-#     experiments = project.fetch_runs_table().to_pandas()
+    # Get all the experiments in the project
+    experiments = project.fetch_runs_table().to_pandas()
 
-#     print('\n\n\n-----------------------------------------------\n\n\n')
+    if project.exists('feedback/feedback') and project.exists('feedback/defective') and project.exists('feedback/filename') and project.exists('feedback/x_min') and project.exists('feedback/y_min') and project.exists('feedback/x_max') and project.exists('feedback/y_max'):
+        experiments = experiments[['feedback/feedback',
+                                'feedback/filename',
+                                'feedback/defective',
+                                'feedback/x_min',
+                                'feedback/y_min',
+                                'feedback/x_max',
+                                'feedback/y_max', ]]
 
-#     print(experiments.__dict__)
+        run = run = neptune.init_run(
+            project="farzan-frost/fabric8-dataset-save",
+            capture_stdout=True,
+            capture_stderr=True,
+            capture_hardware_metrics=True,
+        )
 
+        experiments.to_csv('file.csv', index=False)
 
-#     print('\n\n\n-----------------------------------------------\n\n\n')
+        run['dataset'].upload('file.csv')
 
-#     # for experiment in experiments:
-
-#     #     print(experiment['boundingBoxes/scores'])
-#     #     break
-
-#         # print(experiment.get_property('feedback/feedback'))
-#         # print(experiment.get_property('feedback/filename'))
-#         # print(experiment.get_property('feedback/defective'))
-#         # print(experiment.get_property('feedback/x_min'))
-#         # print(experiment.get_property('feedback/y_min'))
-#         # print(experiment.get_property('feedback/x_max'))
-#         # print(experiment.get_property('feedback/y_max'))
-    
-#     csv_doc = 'this variable points to your doc'
-
-#     run = run = neptune.init_run(
-#         project="farzan-frost/fabric8-dataset",
-#         capture_stdout=True,
-#         capture_stderr=True,
-#         capture_hardware_metrics=True,
-#     )
-
-#     run['dataset'].upload(csv_doc)
-
-#     run.stop()
+        run.stop()
         
 
-#     project.stop()
+    project.stop()
 
-#     return 200
+    return jsonify({"message": "data"}), 200
 
 
 
