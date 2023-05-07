@@ -49,6 +49,9 @@ def get_feedback_status():
     threshold = (random.randint(0, 10) *
                  feedback_replied_request_ratio * no_yes_ratio) / 10
 
+    if no_of_feedback_replied > 0 and no_yes_ratio >= 0.5:
+        create_train_data()
+
     if threshold >= 0.5:
         no_of_feedback_requests += 1
         return True
@@ -103,7 +106,6 @@ def init_monitoring():
     )
 
 
-@app.route('/datatrain')
 def create_train_data():
     # Initialize the Neptune client
     project = neptune.init_project(
